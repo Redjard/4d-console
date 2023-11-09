@@ -1,4 +1,4 @@
-# 4D UUID Obuscator
+# 4D Console
 
 This mod allows opening (and closing) a console with c.
 Other mods can send information about their shortcuts to this mod, where they are displayed in a unified way.
