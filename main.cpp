@@ -1,9 +1,6 @@
-
-#define MOD_NAME "4D Console"
-#define MOD_VER "1.1"
-
 #include <4dm.h>
 #include "4Dconsole.h"
+#include "4DKeyBinds.h"
 using namespace fdm;
 
 
@@ -40,7 +37,10 @@ extern "C" __declspec(dllexport) bool registerCallback( consoleCallbackFunct cal
 }
 
 
-void toggleConsole(){
+void toggleConsole(GLFWwindow* window, int action, int _mods) {
+	if(action != GLFW_PRESS)
+		return;
+	
 	static bool consoleOpen = false;
 	
 	if (!consoleOpen) {
@@ -74,66 +74,6 @@ void toggleConsole(){
 }
 
 
-
-
-bool isInTextInput = false;
-
-typedef bool(__thiscall* KeyInputFunct)(void* self, StateManager& s, int key, int scancode, int action, int mods);
-std::vector<KeyInputFunct> originals;
-template<auto i> bool generic_keyinput(void* self, StateManager& s, int key, int scancode, int action, int mods ) {
-	
-	isInTextInput = false;
-	
-	// this will call gui_textinput_keyInput_H() if a TextInput is focused
-	auto result = originals[i](self, s, key, scancode, action, mods);
-	
-	// if gui_textinput_keyInput_H() was called, we don't do shortcuts
-	if (isInTextInput)
-		return result;
-	
-	if(action == GLFW_PRESS && key == GLFW_KEY_C)
-		toggleConsole();
-	
-	return result;
-}
-
-KeyInputFunct gui_textinput_keyInput;
-bool gui_textinput_keyInput_H(void* self, StateManager& s, int key, int scancode, int action, int mods) {
-	isInTextInput = true;
-	return gui_textinput_keyInput(self, s, key, scancode, action, mods);
-}
-
-
-auto addrs = std::array{
-	FUNC_STATETUTORIAL_KEYINPUT,
-	FUNC_STATESKINCHOOSER_KEYINPUT,
-	FUNC_STATESETTINGS_KEYINPUT,
-	FUNC_STATECREDITS_KEYINPUT,
-	FUNC_STATECREATEWORLD_KEYINPUT,  // everything is createnewworld
-	FUNC_STATEGAME_KEYINPUT,
-	FUNC_STATEDEATHSCREEN_KEYINPUT,
-	FUNC_STATETITLESCREEN_KEYINPUT,
-	FUNC_STATEMULTIPLAYER_KEYINPUT,
-};
-
-DWORD WINAPI Main_Thread(void* hModule) {
-	
-	registerConsoleKeyinfo({{"c","Toggle this console"}});
-	
-	// don't even try touching this
-	// this hooks all addresses in addrs[] with generic_keyinput()
-	([]<auto... i>(std::index_sequence<i...>){(
-		Hook(addrs[i], generic_keyinput<i>, &originals.emplace_back())
-	, ...);})(std::make_index_sequence<addrs.size()>());
-	
-	Hook( FUNC_GUI_TEXTINPUT_KEYINPUT, &gui_textinput_keyInput_H, &gui_textinput_keyInput );  // for checking we aren't typing into one
-	
-	EnableHook(nullptr);
-	return true;
-}
-
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD _reason, LPVOID lpReserved) {
-	if (_reason == DLL_PROCESS_ATTACH)
-		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)Main_Thread, hModule, 0, NULL);
-	return true;
+$exec {
+	KeyBinds::addBind( "Toggle console", glfw::C, KeyBinds::GLOBAL, toggleConsole );
 }
